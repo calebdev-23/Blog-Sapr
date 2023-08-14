@@ -13,20 +13,22 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ApiResource(
     operations: [
         new Get(
-            normalizationContext: ["groups" => "read"],
+            normalizationContext: ["groups"=>["read:user", "read:blog:user", "read:comment:user" ]],
             security: "is_granted('IS_AUTHENTICATED_FULLY')"
         ),
         new Post(
-            denormalizationContext:["groups" => "write"]
+            denormalizationContext:["groups" => ["post:user"]]
         ),
-        new Put()
+        new Put(
+            denormalizationContext: ["groups" => ["put:user"]],
+            security: "is_granted('IS_AUTHENTICATED_FULLY') and object == user"
+        )
     ],
 
 )]
@@ -37,11 +39,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups("read")]
+    #[Groups(["get-author-blog", "read:user"])]
     private ?int $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Groups(["read", "write"])]
+    #[Groups(["post:user", "read:user"])]
     private ?string $email = null;
 
     #[ORM\Column]
@@ -51,23 +53,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var string The hashed password
      */
     #[ORM\Column]
-    #[Groups(["write"])]
+    #[Groups(["post:user", "put:user"])]
     private ?string $password = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["read", "write"])]
+    #[Groups(["post:user", "read:user", "get-author-blog"])]
     private ?string $username = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["read", "write"])]
+    #[Groups(["post:user", "put:user", "read:user", "get-author-blog"])]
     private ?string $name = null;
 
     #[ORM\OneToMany(mappedBy: 'author', targetEntity: BlogPost::class)]
-    #[Groups("read")]
+    #[Groups(["read:blog:user"])]
     private Collection $blogPosts;
 
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Comment::class)]
-    #[Groups("read")]
+    #[Groups(["read:comment:user"])]
     private Collection $comments;
 
 

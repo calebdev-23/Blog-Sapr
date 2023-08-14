@@ -28,7 +28,7 @@ class EventSubsriber implements EventSubscriberInterface{
         $user = $event->getControllerResult();
         $method = $event->getRequest()->getMethod();
 
-        if (!$user instanceof User || Request::METHOD_POST !== $method) {
+        if (!$user instanceof User || !in_array($method, [Request::METHOD_POST, Request::METHOD_PUT])) {
            return;
         }
         $password = $this->hasher->hashPassword($user, $user->getPassword());

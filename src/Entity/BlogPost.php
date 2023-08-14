@@ -7,18 +7,31 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
+use App\Interface\AuthoredEntityInterface;
+use App\Interface\PublishedDateEntityInterface;
 use App\Repository\BlogPostRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BlogPostRepository::class)]
 #[ApiResource(
     operations: [
         new GetCollection(),
-        new Get(),
+        /*new Get(
+            normalizationContext: ["groups"=> ["get-author-blog", "get-comment","read:blog"]]
+        ),*/
+        new Get(
+            uriTemplate: '/blog_posts/{id}/comments',
+            normalizationContext: ["groups"=> ["get-author-blog", "get-all-comment","read:blog"]],
+        ),
+        new Get(
+            normalizationContext: ["groups"=> ["get-author-blog", "get-all-comment","read:blog"]],
+        ),
         new Post(
             security: "is_granted('IS_AUTHENTICATED_FULLY')"
         ),
@@ -27,11 +40,12 @@ use Symfony\Component\Validator\Constraints as Assert;
         )
     ],
 )]
-class BlogPost
+class BlogPost implements AuthoredEntityInterface, PublishedDateEntityInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups("read:blog")]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
@@ -39,6 +53,7 @@ class BlogPost
     #[Assert\Length(
         min: 10
     )]
+    #[Groups("read:blog")]
     private ?string $title = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
@@ -49,17 +64,21 @@ class BlogPost
     #[Assert\Length(
         min: 20
     )]
+    #[Groups("read:blog")]
     private ?string $content = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\NotBlank]
+    #[Groups("read:blog")]
     private ?string $slug = null;
 
     #[ORM\ManyToOne(inversedBy: 'blogPosts')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Groups("get-author-blog")]
     private ?User $author = null;
 
     #[ORM\OneToMany(mappedBy: 'BlogPost', targetEntity: Comment::class)]
+    #[Groups(["get-all-comment"])]
     private Collection $comments;
 
     public function __construct()
@@ -89,7 +108,7 @@ class BlogPost
         return $this->published;
     }
 
-    public function setPublished(\DateTimeInterface $published): static
+    public function setPublished(\DateTimeInterface $published): PublishedDateEntityInterface
     {
         $this->published = $published;
 
@@ -126,10 +145,9 @@ class BlogPost
         return $this->author;
     }
 
-    public function setAuthor(?User $author): static
+    public function setAuthor(UserInterface $user): AuthoredEntityInterface
     {
-        $this->author = $author;
-
+        $this->author = $user;
         return $this;
     }
 
